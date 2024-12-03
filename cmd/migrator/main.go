@@ -13,7 +13,7 @@ func main() {
 	var dbUrl, migrationsPath, migrationsTable string
 
 	flag.StringVar(&dbUrl, "db-url", "ilyas:324153@localhost:5433/L0_test_db", "db url connection")
-	flag.StringVar(&migrationsPath, "migrations-path", "", "path to migrations")
+	flag.StringVar(&migrationsPath, "migrations-path", "./migrations", "path to migrations")
 	flag.StringVar(&migrationsTable, "migrations-table", "migrations", "name of migrations table")
 	flag.Parse()
 

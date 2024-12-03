@@ -8,16 +8,20 @@ import (
 
 // Структура заказа
 type Order struct {
-	OrderUID        string   `json:"order_uid"`
-	TrackNumber     string   `json:"track_number"`
-	Entry           string   `json:"entry"`
-	Delivery        Delivery `json:"delivery"`
-	Payment         Payment  `json:"payment"`
-	Items           []Item   `json:"items"`
-	Locale          string   `json:"locale"`
-	CustomerID      string   `json:"customer_id"`
-	DeliveryService string   `json:"delivery_service"`
-	DateCreated     string   `json:"date_created"`
+	OrderUID          string   `json:"order_uid"`
+	TrackNumber       string   `json:"track_number"`
+	Entry             string   `json:"entry"`
+	Delivery          Delivery `json:"delivery"`
+	Payment           Payment  `json:"payment"`
+	Items             []Item   `json:"items"`
+	Locale            string   `json:"locale"`
+	CustomerID        string   `json:"customer_id"`
+	InternalSignature string   `json:"internal_signature"`
+	DeliveryService   string   `json:"delivery_service"`
+	ShardKey          string   `json:"shardkey"`
+	SmID              int      `json:"sm_id"`
+	DateCreated       string   `json:"date_created"`
+	OofShard          string   `json:"oof_shard"`
 }
 
 type Delivery struct {
@@ -32,6 +36,7 @@ type Delivery struct {
 
 type Payment struct {
 	TransactionID string `json:"transaction"`
+	RequestID     string `json:"request_id"`
 	Currency      string `json:"currency"`
 	Provider      string `json:"provider"`
 	Amount        int    `json:"amount"`
@@ -68,15 +73,14 @@ func LoadCacheFromDB(db *sql.DB, cache *sync.Map) error {
 		var order Order
 		// Здесь извлекаются данные из таблицы orders, delivery и payment
 		// и заполняется структура Order
-		// Пример:
-		err := rows.Scan(&order.OrderUID, &order.TrackNumber, &order.Entry, &order.Locale, &order.CustomerID, &order.DeliveryService, &order.DateCreated)
+		err := rows.Scan(&order.OrderUID, &order.TrackNumber, &order.Entry, &order.Locale, &order.InternalSignature, &order.CustomerID, &order.DeliveryService, &order.ShardKey, &order.SmID, &order.DateCreated, &order.OofShard)
 		if err != nil {
 			log.Println("Error scanning order:", err)
 			continue
 		}
 
 		// Загрузка доставки
-		err = db.QueryRow("SELECT name, phone, zip, city, address, region, email FROM delivery WHERE order_uid = $1", order.OrderUID).
+		err = db.QueryRow("SELECT name, phone, zip, city, address, region, email FROM deliveries WHERE order_uid = $1", order.OrderUID).
 			Scan(&order.Delivery.Name, &order.Delivery.Phone, &order.Delivery.Zip, &order.Delivery.City, &order.Delivery.Address, &order.Delivery.Region, &order.Delivery.Email)
 		if err != nil {
 			log.Println("Error loading delivery:", err)
@@ -84,7 +88,7 @@ func LoadCacheFromDB(db *sql.DB, cache *sync.Map) error {
 		}
 
 		// Загрузка оплаты
-		err = db.QueryRow("SELECT transaction, currency, provider, amount, payment_dt, bank, delivery_cost, goods_total, custom_fee FROM payment WHERE order_uid = $1", order.OrderUID).
+		err = db.QueryRow("SELECT transaction_id, currency, provider, amount, payment_dt, bank, delivery_cost, goods_total, custom_fee FROM payments WHERE order_uid = $1", order.OrderUID).
 			Scan(&order.Payment.TransactionID, &order.Payment.Currency, &order.Payment.Provider, &order.Payment.Amount, &order.Payment.PaymentDT, &order.Payment.Bank, &order.Payment.DeliveryCost, &order.Payment.GoodsTotal, &order.Payment.CustomFee)
 		if err != nil {
 			log.Println("Error loading payment:", err)

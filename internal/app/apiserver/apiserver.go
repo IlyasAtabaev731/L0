@@ -3,11 +3,9 @@ package apiserver
 import (
 	"database/sql"
 	"encoding/json"
-	"github.com/IlyasAtabaev731/L0/internal/cache"
 	"github.com/IlyasAtabaev731/L0/internal/config"
 	"github.com/gorilla/mux"
 	"io"
-	"log"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -42,7 +40,7 @@ func (s *APIServer) Start() error {
 
 func (s *APIServer) configureRouter() {
 	s.router.HandleFunc("/orderDetails", s.handleOrderDetails())
-	s.router.HandleFunc("/order/{orderUid}", s.getOrderHandler()).Methods("GET")
+	s.router.HandleFunc("/order/{orderUid}", s.orderHandler).Methods("GET")
 }
 
 func (s *APIServer) handleOrderDetails() http.HandlerFunc {
@@ -71,35 +69,30 @@ func (s *APIServer) getOrderById(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *APIServer) getOrderHandler() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// Получаем параметр из URL
-		vars := mux.Vars(r)
-		orderUid := vars["orderUid"]
+func (s *APIServer) orderHandler(w http.ResponseWriter, r *http.Request) {
+	// Извлекаем orderUID из URL
+	vars := mux.Vars(r)
+	orderUID := vars["orderUid"]
 
-		// Получаем данные заказа из БД
-		var order cache.Order
-		err := s.db.QueryRow(
-			`SELECT order_uid, track_number, entry, locale, customer_id, delivery_service, date_created 
-			 FROM orders 
-			 WHERE order_uid = $1`,
-			orderUid,
-		).Scan(&order.OrderUID, &order.TrackNumber, &order.Entry, &order.Locale, &order.CustomerID, &order.DeliveryService, &order.DateCreated)
+	// Ищем в кэше
+	order, found := s.cache.Load(orderUID)
+	if !found {
+		http.Error(w, "Order not found", http.StatusNotFound)
+		return
+	}
 
-		if err == sql.ErrNoRows {
-			http.Error(w, "Order not found", http.StatusNotFound)
-			return
-		} else if err != nil {
-			log.Printf("Failed to query order: %v", err)
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-			return
-		}
+	// Преобразуем данные в JSON
+	orderJSON, err := json.Marshal(order)
+	if err != nil {
+		http.Error(w, "Failed to marshal order data", http.StatusInternalServerError)
+		return
+	}
 
-		// Устанавливаем заголовки ответа
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-
-		// Возвращаем данные в формате JSON
-		json.NewEncoder(w).Encode(order)
+	// Отправляем ответ
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, err1 := w.Write(orderJSON)
+	if err1 != nil {
+		s.logger.Error("Failed to write response", err1)
 	}
 }

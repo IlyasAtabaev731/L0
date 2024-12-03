@@ -15,6 +15,7 @@ import (
 	"log/slog"
 	"math/rand"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -56,7 +57,7 @@ func main() {
 			log.Error("Failed to close database connection: %v", err)
 		}
 	}(db)
-	var inMemoryCache *sync.Map
+	var inMemoryCache *sync.Map = &sync.Map{}
 	// Загрузка кэша
 	err = cache.LoadCacheFromDB(db, inMemoryCache)
 	if err != nil {
@@ -120,8 +121,28 @@ func generateFakeOrder() cache.Order {
 	var items []cache.Item
 
 	// Используем faker для генерации данных
-	faker.FakeData(&delivery)
-	faker.FakeData(&payment)
+	delivery = cache.Delivery{
+		Name:    faker.Name(),
+		Phone:   faker.E164PhoneNumber(),
+		Zip:     strconv.Itoa(rand.Intn(100000)),
+		City:    faker.Word(),
+		Address: faker.Word(),
+		Region:  faker.Word(),
+		Email:   faker.Email(),
+	}
+
+	payment = cache.Payment{
+		TransactionID: strconv.Itoa(rand.Intn(100000)),
+		Amount:        rand.Intn(1000) + 1,
+		RequestID:     strconv.Itoa(rand.Intn(100000)),
+		Currency:      "RUB",
+		Provider:      "wbpay",
+		PaymentDT:     int64(rand.Intn(100000000)),
+		Bank:          "alpha",
+		DeliveryCost:  rand.Intn(1000) + 1,
+		GoodsTotal:    rand.Intn(1000) + 1,
+		CustomFee:     0,
+	}
 
 	// Создаем 1-3 фейковых товара
 	for i := 0; i < rand.Intn(3)+1; i++ {
@@ -134,16 +155,20 @@ func generateFakeOrder() cache.Order {
 	}
 
 	return cache.Order{
-		OrderUID:        faker.UUIDHyphenated(),
-		TrackNumber:     faker.Word(),
-		Entry:           "WBIL",
-		Delivery:        delivery,
-		Payment:         payment,
-		Items:           items,
-		Locale:          "en",
-		CustomerID:      faker.UUIDHyphenated(),
-		DeliveryService: "meest",
-		DateCreated:     time.Now().Format(time.RFC3339),
+		OrderUID:          faker.UUIDHyphenated(),
+		TrackNumber:       faker.Word(),
+		Entry:             "WBIL",
+		Delivery:          delivery,
+		Payment:           payment,
+		Items:             items,
+		Locale:            "en",
+		CustomerID:        faker.UUIDHyphenated(),
+		DeliveryService:   "meest",
+		DateCreated:       time.Now().Format(time.RFC3339),
+		InternalSignature: faker.UUIDHyphenated(),
+		SmID:              rand.Intn(100),
+		OofShard:          strconv.Itoa(rand.Intn(10)),
+		ShardKey:          strconv.Itoa(rand.Intn(10)),
 	}
 }
 
@@ -181,6 +206,6 @@ func fakeProduce(brokers []string, topic string) {
 		log.Printf("Order %s sent to partition %d at offset %d", order.OrderUID, partition, offset)
 
 		// Задержка перед следующим сообщением
-		time.Sleep(1 * time.Second)
+		time.Sleep(10 * time.Second)
 	}
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"github.com/IBM/sarama"
 	"log"
 	"sync"
@@ -13,7 +12,6 @@ import (
 )
 
 func ConsumeKafkaMessages(brokers []string, topic string, db *sql.DB, inMemoryCache *sync.Map) {
-	fmt.Println("3")
 	config := sarama.NewConfig()
 	config.Consumer.Group.Rebalance.Strategy = sarama.BalanceStrategyRoundRobin
 
@@ -29,7 +27,6 @@ func ConsumeKafkaMessages(brokers []string, topic string, db *sql.DB, inMemoryCa
 	}
 
 	for {
-		fmt.Println("2")
 		err := consumerGroup.Consume(context.Background(), []string{topic}, handler)
 		if err != nil {
 			log.Printf("Error in Kafka consumer: %v", err)
@@ -48,7 +45,6 @@ func (h *consumerHandler) Cleanup(_ sarama.ConsumerGroupSession) error { return 
 
 func (h *consumerHandler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for message := range claim.Messages() {
-		fmt.Println("1")
 		var order cache.Order
 		err := json.Unmarshal(message.Value, &order)
 		if err != nil {
@@ -80,10 +76,10 @@ func saveOrderToDB(db *sql.DB, order cache.Order) error {
 
 	// Сохранение заказа
 	_, err = tx.Exec(
-		`INSERT INTO orders (order_uid, track_number, entry, locale, customer_id, delivery_service, date_created)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		`INSERT INTO orders (order_uid, track_number, entry, locale, customer_id, internal_signature, delivery_service, shardkey, sm_id, date_created, oof_shard)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		ON CONFLICT (order_uid) DO NOTHING`,
-		order.OrderUID, order.TrackNumber, order.Entry, order.Locale, order.CustomerID, order.DeliveryService, order.DateCreated,
+		order.OrderUID, order.TrackNumber, order.Entry, order.Locale, order.CustomerID, order.InternalSignature, order.DeliveryService, order.ShardKey, order.SmID, order.DateCreated, order.OofShard,
 	)
 	if err != nil {
 		tx.Rollback()
@@ -92,7 +88,7 @@ func saveOrderToDB(db *sql.DB, order cache.Order) error {
 
 	// Сохранение доставки
 	_, err = tx.Exec(
-		`INSERT INTO delivery (order_uid, name, phone, zip, city, address, region, email)
+		`INSERT INTO deliveries (order_uid, name, phone, zip, city, address, region, email)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		ON CONFLICT (order_uid) DO NOTHING`,
 		order.OrderUID, order.Delivery.Name, order.Delivery.Phone, order.Delivery.Zip, order.Delivery.City,
@@ -105,7 +101,7 @@ func saveOrderToDB(db *sql.DB, order cache.Order) error {
 
 	// Сохранение оплаты
 	_, err = tx.Exec(
-		`INSERT INTO payment (order_uid, transaction, currency, provider, amount, payment_dt, bank, delivery_cost, goods_total, custom_fee)
+		`INSERT INTO payments (order_uid, transaction_id, currency, provider, amount, payment_dt, bank, delivery_cost, goods_total, custom_fee)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		ON CONFLICT (order_uid) DO NOTHING`,
 		order.OrderUID, order.Payment.TransactionID, order.Payment.Currency, order.Payment.Provider,
