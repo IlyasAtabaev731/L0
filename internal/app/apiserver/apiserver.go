@@ -19,14 +19,16 @@ type APIServer struct {
 	logger *slog.Logger
 	cache  *sync.Map
 	router *mux.Router
+	db     *sql.DB
 }
 
-func New(config *config.Config, logger *slog.Logger, cache *sync.Map) *APIServer {
+func New(config *config.Config, logger *slog.Logger, cache *sync.Map, db *sql.DB) *APIServer {
 	return &APIServer{
 		config: config,
 		logger: logger,
 		cache:  cache,
 		router: mux.NewRouter(),
+		db:     db,
 	}
 }
 
@@ -40,7 +42,7 @@ func (s *APIServer) Start() error {
 
 func (s *APIServer) configureRouter() {
 	s.router.HandleFunc("/orderDetails", s.handleOrderDetails())
-	//s.router.HandleFunc("/order/")
+	s.router.HandleFunc("/order/{orderUid}", s.getOrderHandler()).Methods("GET")
 }
 
 func (s *APIServer) handleOrderDetails() http.HandlerFunc {
@@ -69,7 +71,7 @@ func (s *APIServer) getOrderById(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getOrderHandler(db *sql.DB) http.HandlerFunc {
+func (s *APIServer) getOrderHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Получаем параметр из URL
 		vars := mux.Vars(r)
@@ -77,7 +79,7 @@ func getOrderHandler(db *sql.DB) http.HandlerFunc {
 
 		// Получаем данные заказа из БД
 		var order cache.Order
-		err := db.QueryRow(
+		err := s.db.QueryRow(
 			`SELECT order_uid, track_number, entry, locale, customer_id, delivery_service, date_created 
 			 FROM orders 
 			 WHERE order_uid = $1`,

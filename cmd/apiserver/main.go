@@ -73,7 +73,7 @@ func main() {
 	log.Info("Starting Kafka consumer...")
 	go kafka.ConsumeKafkaMessages(brokers, topic, db, inMemoryCache)
 
-	s := apiserver.New(cfg, log, inMemoryCache)
+	s := apiserver.New(cfg, log, inMemoryCache, db)
 
 	if err := s.Start(); err != nil {
 		log.Error("Failed to start application", err)
