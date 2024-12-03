@@ -71,7 +71,7 @@ func main() {
 	go fakeProduce(brokers, topic, log)
 
 	log.Info("Starting Kafka consumer...")
-	go kafka.ConsumeKafkaMessages(brokers, topic, db, inMemoryCache)
+	go kafka.ConsumeKafkaMessages(brokers, topic, db, inMemoryCache, log)
 
 	s := apiserver.New(cfg, log, inMemoryCache, db)
 

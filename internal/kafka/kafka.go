@@ -5,13 +5,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"github.com/IBM/sarama"
-	"log"
+	"log/slog"
 	"sync"
 
 	"github.com/IlyasAtabaev731/L0/internal/cache"
 )
 
-func ConsumeKafkaMessages(brokers []string, topic string, db *sql.DB, inMemoryCache *sync.Map) {
+func ConsumeKafkaMessages(brokers []string, topic string, db *sql.DB, inMemoryCache *sync.Map, log *slog.Logger) {
 	config := sarama.NewConfig()
 	config.Consumer.Group.Rebalance.Strategy = sarama.BalanceStrategyRoundRobin
 
