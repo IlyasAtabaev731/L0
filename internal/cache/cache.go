@@ -2,7 +2,7 @@ package cache
 
 import (
 	"database/sql"
-	"log"
+	"log/slog"
 	"sync"
 )
 
@@ -62,7 +62,7 @@ type Item struct {
 }
 
 // Загрузка данных из базы данных
-func LoadCacheFromDB(db *sql.DB, cache *sync.Map) error {
+func LoadCacheFromDB(db *sql.DB, cache *sync.Map, log *slog.Logger) error {
 	rows, err := db.Query("SELECT * FROM orders")
 	if err != nil {
 		return err
@@ -75,7 +75,7 @@ func LoadCacheFromDB(db *sql.DB, cache *sync.Map) error {
 		// и заполняется структура Order
 		err := rows.Scan(&order.OrderUID, &order.TrackNumber, &order.Entry, &order.Locale, &order.InternalSignature, &order.CustomerID, &order.DeliveryService, &order.ShardKey, &order.SmID, &order.DateCreated, &order.OofShard)
 		if err != nil {
-			log.Println("Error scanning order:", err)
+			log.Info("Error scanning order:", err)
 			continue
 		}
 
@@ -83,7 +83,7 @@ func LoadCacheFromDB(db *sql.DB, cache *sync.Map) error {
 		err = db.QueryRow("SELECT name, phone, zip, city, address, region, email FROM deliveries WHERE order_uid = $1", order.OrderUID).
 			Scan(&order.Delivery.Name, &order.Delivery.Phone, &order.Delivery.Zip, &order.Delivery.City, &order.Delivery.Address, &order.Delivery.Region, &order.Delivery.Email)
 		if err != nil {
-			log.Println("Error loading delivery:", err)
+			log.Info("Error loading delivery:", err)
 			continue
 		}
 
@@ -91,21 +91,21 @@ func LoadCacheFromDB(db *sql.DB, cache *sync.Map) error {
 		err = db.QueryRow("SELECT transaction_id, currency, provider, amount, payment_dt, bank, delivery_cost, goods_total, custom_fee FROM payments WHERE order_uid = $1", order.OrderUID).
 			Scan(&order.Payment.TransactionID, &order.Payment.Currency, &order.Payment.Provider, &order.Payment.Amount, &order.Payment.PaymentDT, &order.Payment.Bank, &order.Payment.DeliveryCost, &order.Payment.GoodsTotal, &order.Payment.CustomFee)
 		if err != nil {
-			log.Println("Error loading payment:", err)
+			log.Info("Error loading payment:", err)
 			continue
 		}
 
 		// Загрузка товаров
 		itemsRows, err := db.Query("SELECT chrt_id, track_number, price, rid, name, sale, size, total_price, nm_id, brand, status FROM items WHERE order_uid = $1", order.OrderUID)
 		if err != nil {
-			log.Println("Error loading items:", err)
+			log.Info("Error loading items:", err)
 			continue
 		}
 		for itemsRows.Next() {
 			var item Item
 			err = itemsRows.Scan(&item.ChrtID, &item.TrackNumber, &item.Price, &item.RID, &item.Name, &item.Sale, &item.Size, &item.TotalPrice, &item.NMID, &item.Brand, &item.Status)
 			if err != nil {
-				log.Println("Error scanning item:", err)
+				log.Info("Error scanning item:", err)
 				continue
 			}
 			order.Items = append(order.Items, item)

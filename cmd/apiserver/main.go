@@ -56,9 +56,9 @@ func main() {
 			log.Error("Failed to close database connection: %v", err)
 		}
 	}(db)
-	var inMemoryCache *sync.Map = &sync.Map{}
+	var inMemoryCache = &sync.Map{}
 	// Загрузка кэша
-	err = cache.LoadCacheFromDB(db, inMemoryCache)
+	err = cache.LoadCacheFromDB(db, inMemoryCache, log)
 	if err != nil {
 		log.Error("Failed to load cache from database: %v", err)
 	}

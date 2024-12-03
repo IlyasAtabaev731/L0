@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"github.com/IBM/sarama"
+	"log"
 	"log/slog"
 	"sync"
 
@@ -17,7 +18,7 @@ func ConsumeKafkaMessages(brokers []string, topic string, db *sql.DB, inMemoryCa
 
 	consumerGroup, err := sarama.NewConsumerGroup(brokers, "orders_consumer_group", config)
 	if err != nil {
-		log.Fatalf("Failed to create Kafka consumer group: %v", err)
+		log.Error("Failed to create Kafka consumer group: %v", err)
 	}
 	defer consumerGroup.Close()
 
@@ -29,7 +30,7 @@ func ConsumeKafkaMessages(brokers []string, topic string, db *sql.DB, inMemoryCa
 	for {
 		err := consumerGroup.Consume(context.Background(), []string{topic}, handler)
 		if err != nil {
-			log.Printf("Error in Kafka consumer: %v", err)
+			log.Error("Error in Kafka consumer: %v", err)
 		}
 	}
 }
