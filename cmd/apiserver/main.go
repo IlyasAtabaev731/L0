@@ -11,7 +11,6 @@ import (
 	"github.com/IlyasAtabaev731/L0/internal/kafka"
 	"github.com/bxcodec/faker/v3"
 	_ "github.com/lib/pq"
-	"log"
 	"log/slog"
 	"math/rand"
 	"os"
@@ -69,7 +68,7 @@ func main() {
 	brokers := []string{"localhost:9092"}
 	topic := "orders"
 
-	go fakeProduce(brokers, topic)
+	go fakeProduce(brokers, topic, log)
 
 	log.Info("Starting Kafka consumer...")
 	go kafka.ConsumeKafkaMessages(brokers, topic, db, inMemoryCache)
@@ -172,14 +171,14 @@ func generateFakeOrder() cache.Order {
 	}
 }
 
-func fakeProduce(brokers []string, topic string) {
+func fakeProduce(brokers []string, topic string, log *slog.Logger) {
 	producer, err := sarama.NewSyncProducer(brokers, nil)
 	if err != nil {
-		log.Fatalf("Failed to create Kafka producer: %v", err)
+		log.Error("Failed to create Kafka producer: %v", err)
 	}
 	defer producer.Close()
 
-	log.Println("Starting to produce fake orders...")
+	log.Info("Starting to produce fake orders...")
 
 	for {
 		order := generateFakeOrder()
@@ -187,7 +186,7 @@ func fakeProduce(brokers []string, topic string) {
 		// Преобразуем заказ в JSON
 		orderJSON, err := json.Marshal(order)
 		if err != nil {
-			log.Printf("Failed to marshal order: %v", err)
+			log.Error("Failed to marshal order: %v", err)
 			continue
 		}
 
@@ -199,11 +198,11 @@ func fakeProduce(brokers []string, topic string) {
 
 		partition, offset, err := producer.SendMessage(msg)
 		if err != nil {
-			log.Printf("Failed to send message to Kafka: %v", err)
+			log.Error("Failed to send message to Kafka: %v", err)
 			continue
 		}
 
-		log.Printf("Order %s sent to partition %d at offset %d", order.OrderUID, partition, offset)
+		log.Info("Order %s sent to partition %d at offset %d", order.OrderUID, partition, offset)
 
 		// Задержка перед следующим сообщением
 		time.Sleep(10 * time.Second)
