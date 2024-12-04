@@ -2,3 +2,4 @@
 
 интерфейс localhost:8080/orderDetails
 хэндлер получения order по orderUid localhost:8080/order/{orderUid}
+run command go run ./cmd/apiserver/main.go --config="./config/local.yml"
